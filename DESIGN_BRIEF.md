@@ -2,7 +2,7 @@
 
 ## Problem Understanding
 
-StrongMind wants visibility into GitHub activity to analyze repository usage and contributor behavior over time. This service ingests Push events, enriches them with actor and repo data, and stores them for querying.
+We want to track GitHub activity to analyze repository usage and contributor behavior over time. This service ingests Push events, enriches them with actor and repo data, and stores them for querying.
 
 Key constraints: no authenticated token (60 req/hr unauthenticated), must use `https://api.github.com/events`, must be resilient and observable.
 

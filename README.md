@@ -79,11 +79,13 @@ docker compose run --rm test
 
 1. **Start the system**: `docker compose up --build -d`
 2. **Run ingestion**: `docker compose run --rm ingest`
-3. **Check logs**: `docker compose logs -f` shows:
-   - `[ingest] Fetched N events, M PushEvents`
-   - `[ingest] Persisted PushEvent <id>`
-   - `[enrich] Fetched actor/repo <id>` (when new actors/repos are fetched)
-   - `[enrich] Rate limited (403/429). Exiting...` (when limit hit; ingest exits, run backfill later)
+3. **Check logs** (all output goes to stdout/stderr):
+   - **Ingest and backfill:** When you run `docker compose run --rm ingest` or `docker compose run --rm backfill`, their output appears in that terminal. Expect lines like:
+     - `[ingest] Fetched N events, M PushEvents`
+     - `[ingest] Persisted PushEvent <id>`
+     - `[enrich] Fetched actor/repo <id>` (when new actors/repos are fetched)
+     - `[enrich] Rate limited (403/429). Exiting...` (when limit hit; ingest exits, run backfill later)
+   - **App and db:** Run `docker compose logs -f` in the terminal where you started `docker compose up` to see app and db logs.
 4. **Query the database**:
    ```bash
    # Push events

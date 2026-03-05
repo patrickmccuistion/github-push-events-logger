@@ -128,10 +128,12 @@ class GithubEnricher
 
     uri = URI.parse(avatar_url)
     ext = File.extname(uri.path).presence || ".png"
-    actor_record.avatar.attach(
-      io: URI.open(uri),
-      filename: "avatar_#{actor_id}#{ext}"
-    )
+    Rails.logger.silence do
+      actor_record.avatar.attach(
+        io: URI.open(uri),
+        filename: "avatar_#{actor_id}#{ext}"
+      )
+    end
     @logger.info "[enrich] Attached avatar for actor #{actor_id}"
   rescue OpenURI::HTTPError, SocketError, Errno::ECONNREFUSED => e
     @logger.warn "[enrich] Failed to fetch avatar for actor #{actor_id}: #{e.message}"

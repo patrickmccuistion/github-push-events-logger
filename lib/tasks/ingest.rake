@@ -3,7 +3,8 @@
 namespace :ingest do
   desc "Run GitHub push events ingestion (single poll)"
   task run: :environment do
-    ingester = GithubEventsIngester.new
+    enrich = ENV["INGEST_FIXTURE_PATH"].blank?
+    ingester = GithubEventsIngester.new(enrich: enrich)
     ingester.run(continuous: ENV["CONTINUOUS"] == "1")
   end
 end

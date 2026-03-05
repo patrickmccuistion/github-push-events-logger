@@ -12,7 +12,7 @@ Key constraints:
 ## Proposed Architecture
 
 - **Rails API-only** app in Docker with PostgreSQL
-- **Ingest**: Poll `/events`, filter PushEvent, persist raw + structured
+- **Ingest**: Poll `/events`, filter PushEvent, persist raw + structured. Optional: `INGEST_FIXTURE_PATH` ingests from a local JSON file (deterministic equivalent, no network); enrichment skipped in fixture mode.
 - **Enrich**: Fetch actor and repo data from URLs in the event payload; dedupe by ID before fetch
 - **Rate limit**: On 403/429, exit immediately (no wait). Backfill job fills in missing enrichment when limit resets.
 - **Priority**: Push events first. Persist all events, then enrich. If rate limited during enrichment, exit; events are already saved.

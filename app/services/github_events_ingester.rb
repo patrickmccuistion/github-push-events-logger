@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "faraday"
+require "ostruct"
 
 class GithubEventsIngester
   EVENTS_URL = "https://api.github.com/events"
@@ -54,6 +55,17 @@ class GithubEventsIngester
   private
 
   def fetch_events
+    fixture_path = ENV["INGEST_FIXTURE_PATH"]
+    if fixture_path.present?
+      path = Pathname.new(fixture_path).absolute? ? fixture_path : Rails.root.join(fixture_path)
+      body = JSON.parse(File.read(path))
+      return OpenStruct.new(
+        status: 200,
+        body: body,
+        headers: { "etag" => '"fixture"', "x-poll-interval" => "60" }
+      )
+    end
+
     conn = Faraday.new(url: EVENTS_URL) do |f|
       f.request :json
       f.response :json

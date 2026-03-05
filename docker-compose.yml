@@ -64,6 +64,22 @@ services:
       RAILS_ENV: development
       RAILS_LOG_TO_STDOUT: "true"
 
+  prune:
+    build: .
+    command: sh -c "bin/rails db:prepare && bin/rails data:prune_old_raw_events"
+    profiles:
+      - manual
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/github_push_events_development
+      RAILS_ENV: development
+      RAILS_LOG_TO_STDOUT: "true"
+
   test:
     build: .
     command: sh -c "bin/rails db:prepare && bin/rails test"

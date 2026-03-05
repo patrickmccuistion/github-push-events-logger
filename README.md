@@ -39,6 +39,18 @@ docker compose run --rm -e CONTINUOUS=1 ingest
 - `RATE_LIMIT_DELAY=2` – seconds to sleep between enrichment requests (reduces chance of hitting limit)
 - `MAX_REQUESTS_PER_RUN=50` – stop before hitting 60; run again later to complete
 
+**Ingestion flow:** Run `ingest` (single poll or continuous). If rate limited, ingest exits; run `backfill` when the limit resets to complete enrichment. Both are one-off jobs; run `ingest` again for the next batch.
+
+### Deterministic demo (no network)
+
+To verify ingestion without hitting the live API, use a fixture file. Persists 1 PushEvent (id 12345678) into raw_events and push_events. Enrichment is skipped in fixture mode.
+
+```bash
+docker compose run --rm -e INGEST_FIXTURE_PATH=test/fixtures/github_events.json ingest
+```
+
+Use live ingest for the full pipeline (events + enrichment).
+
 ## Backfill Enrichment
 
 If ingest exits due to rate limit before enriching all events, run the backfill job when the limit resets. It finds unenriched records and fetches them. Backfill also exits on rate limit:
@@ -54,7 +66,7 @@ Run after ingest, or on a schedule (e.g. cron) to gradually complete enrichment.
 To limit database growth, prune `raw_events` older than N days. **Warning:** Backfill cannot re-enrich from pruned events.
 
 ```bash
-docker compose run --rm -e DAYS=90 app bin/rails data:prune_old_raw_events
+docker compose run --rm -e DAYS=90 prune
 ```
 
 ## Run Tests

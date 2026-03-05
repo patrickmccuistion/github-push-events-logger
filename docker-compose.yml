@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: github_push_events_development
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    command: sh -c "bin/rails db:prepare && bin/rails server -b 0.0.0.0"
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/github_push_events_development
+      RAILS_ENV: development
+      RAILS_LOG_TO_STDOUT: "true"
+
+  ingest:
+    build: .
+    command: sh -c "bin/rails db:prepare && bin/rails ingest:run"
+    profiles:
+      - manual
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/github_push_events_development
+      RAILS_ENV: development
+      RAILS_LOG_TO_STDOUT: "true"
+
+  backfill:
+    build: .
+    command: sh -c "bin/rails db:prepare && bin/rails enrich:backfill"
+    profiles:
+      - manual
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/github_push_events_development
+      RAILS_ENV: development
+      RAILS_LOG_TO_STDOUT: "true"
+
+  test:
+    build: .
+    command: sh -c "bin/rails db:prepare && bin/rails test"
+    profiles:
+      - manual
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/github_push_events_test
+      RAILS_ENV: test
+      RAILS_LOG_TO_STDOUT: "true"
+
+volumes:
+  postgres_data:
+  bundle_cache:

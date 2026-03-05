@@ -28,12 +28,16 @@ Key constraints:
 
 ## Rate Limits and Durability
 
+- **Amplification**: 1 events fetch + up to (unique actors + unique repos) per poll. Dedupe by ID avoids repeated fetches.
 - **ETag**: Send If-None-Match on next poll; 304 response does not count against rate limit
 - **X-Poll-Interval**: Honor header (typically 60s) between polls
 - **403/429**: Exit immediately. Log reset time. Run backfill when limit resets.
 - **Enrichment**: Fetch from actor.url and repo.url; dedupe by ID; exit on rate limit
 - **Backfill**: `rails enrich:backfill` finds missing actors/repos from raw_events, fetches them, exits on rate limit
-- **Idempotency**: Upsert on event_id; restart-safe
+- **Fan-out control** (optional): `RATE_LIMIT_DELAY=N` adds N seconds between enrichment requests; `MAX_REQUESTS_PER_RUN=M` stops before hitting limit
+- **Idempotency**: Upsert on event_id; restart-safe. Same event_id upserted multiple times yields same result. API can return same events across polls; upsert prevents duplicates.
+- **Restart safety**: Events persisted first; enrichment can be re-run via backfill. If process crashes during enrichment, events are already saved.
+- **Unbounded growth**: `raw_events` grows indefinitely. Optional: `rails data:prune_old_raw_events DAYS=90` prunes old raw events. Tradeoff: backfill cannot re-enrich from pruned events.
 
 ## Tradeoffs and Assumptions
 
@@ -41,9 +45,12 @@ Key constraints:
 - **Single poll by default**: `ingest` runs once unless CONTINUOUS=1. Production would use cron or a long-running process.
 - **No auth**: Per spec. With a token, I could poll more frequently and enrich more aggressively.
 
+## Object Storage (Extension C)
+
+- **Actor avatars**: Stored via Active Storage (Disk backend) when enriching. One attachment per actor; no re-download if already attached. `avatar_url` kept as fallback. Graceful failure on fetch errors.
+
 ## What I Intentionally Did Not Build
 
 - Web UI or API endpoints for querying (data is in PostgreSQL)
-- Object storage for avatars (Extension C)
 - Redis/Sidekiq for async enrichment (backfill is a synchronous rake task; cron-friendly)
 - Webhook ingestion (spec requires public events API)

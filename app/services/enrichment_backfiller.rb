@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
 class EnrichmentBackfiller
-  def initialize(logger: Rails.logger)
+  def initialize(logger: Rails.logger, rate_limiter: nil)
     @logger = logger
-    @enricher = GithubEnricher.new(logger: logger)
+    limiter = rate_limiter || build_rate_limiter
+    @enricher = GithubEnricher.new(logger: logger, rate_limiter: limiter)
   end
 
   def run
@@ -15,6 +16,11 @@ class EnrichmentBackfiller
   end
 
   private
+
+  def build_rate_limiter
+    return nil unless ENV["RATE_LIMIT_DELAY"].present? || ENV["MAX_REQUESTS_PER_RUN"].present?
+    GithubRateLimiter.new(logger: @logger)
+  end
 
   def backfill_actors
     missing = missing_actor_urls
@@ -32,6 +38,7 @@ class EnrichmentBackfiller
           @enricher.actor_attributes_from_api(data, actor_id),
           unique_by: :id
         )
+        @enricher.attach_avatar_if_needed(actor_id, data["avatar_url"])
         @logger.info "[backfill] Fetched actor #{actor_id}"
       end
     end

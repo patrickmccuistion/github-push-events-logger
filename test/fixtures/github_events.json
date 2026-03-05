@@ -1,0 +1,28 @@
+[
+  {
+    "id": "12345678",
+    "type": "PushEvent",
+    "actor": {
+      "id": 1,
+      "login": "octocat",
+      "url": "https://api.github.com/users/octocat"
+    },
+    "repo": {
+      "id": 100,
+      "name": "octocat/Hello-World",
+      "url": "https://api.github.com/repos/octocat/Hello-World"
+    },
+    "payload": {
+      "ref": "refs/heads/main",
+      "head": "abc123",
+      "after": "abc123",
+      "before": "def456"
+    }
+  },
+  {
+    "id": "99999",
+    "type": "CreateEvent",
+    "actor": { "id": 2, "login": "other" },
+    "repo": { "id": 101 }
+  }
+]

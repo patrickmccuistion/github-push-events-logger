@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require "faraday"
+require "open-uri"
 
 class GithubEnricher
   ACCEPT_HEADER = "application/vnd.github+json"
 
-  def initialize(logger: Rails.logger)
+  def initialize(logger: Rails.logger, rate_limiter: nil)
     @logger = logger
+    @rate_limiter = rate_limiter
     @conn = Faraday.new do |f|
       f.request :json
       f.response :json
@@ -30,11 +32,13 @@ class GithubEnricher
       return unless response.success?
 
       data = response.body
+      actor_id = actor["id"]
       Actor.upsert(
-        actor_attributes_from_api(data, actor["id"]),
+        actor_attributes_from_api(data, actor_id),
         unique_by: :id
       )
-      @logger.info "[enrich] Fetched actor #{actor["id"]}"
+      attach_avatar_if_needed(actor_id, data["avatar_url"])
+      @logger.info "[enrich] Fetched actor #{actor_id}"
     end
   end
 
@@ -55,6 +59,7 @@ class GithubEnricher
   end
 
   def fetch_with_rate_limit_retry(url)
+    @rate_limiter&.before_request
     response = @conn.get(url) { |req| req.headers["Accept"] = ACCEPT_HEADER }
 
     if response.success?
@@ -112,6 +117,24 @@ class GithubEnricher
     Time.zone.parse(str.to_s)
   rescue ArgumentError
     nil
+  end
+
+  def attach_avatar_if_needed(actor_id, avatar_url)
+    return if avatar_url.blank?
+
+    actor_record = Actor.find_by(id: actor_id)
+    return unless actor_record
+    return if actor_record.avatar.attached?
+
+    uri = URI.parse(avatar_url)
+    ext = File.extname(uri.path).presence || ".png"
+    actor_record.avatar.attach(
+      io: URI.open(uri),
+      filename: "avatar_#{actor_id}#{ext}"
+    )
+    @logger.info "[enrich] Attached avatar for actor #{actor_id}"
+  rescue OpenURI::HTTPError, SocketError, Errno::ECONNREFUSED => e
+    @logger.warn "[enrich] Failed to fetch avatar for actor #{actor_id}: #{e.message}"
   end
 
   private

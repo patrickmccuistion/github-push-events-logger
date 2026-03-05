@@ -35,6 +35,10 @@ For continuous polling (respects X-Poll-Interval and ETag):
 docker compose run --rm -e CONTINUOUS=1 ingest
 ```
 
+**Rate limiting and fan-out control:** Amplification is 1 events fetch plus up to (unique actors + unique repos) per poll. Unauthenticated limit is 60 req/hr. On 403/429, ingest exits immediately; run backfill when the limit resets. Optional env vars:
+- `RATE_LIMIT_DELAY=2` – seconds to sleep between enrichment requests (reduces chance of hitting limit)
+- `MAX_REQUESTS_PER_RUN=50` – stop before hitting 60; run again later to complete
+
 ## Backfill Enrichment
 
 If ingest exits due to rate limit before enriching all events, run the backfill job when the limit resets. It finds unenriched records and fetches them. Backfill also exits on rate limit:
@@ -44,6 +48,14 @@ docker compose run --rm backfill
 ```
 
 Run after ingest, or on a schedule (e.g. cron) to gradually complete enrichment.
+
+## Optional: Prune Old Raw Events
+
+To limit database growth, prune `raw_events` older than N days. **Warning:** Backfill cannot re-enrich from pruned events.
+
+```bash
+docker compose run --rm -e DAYS=90 app bin/rails data:prune_old_raw_events
+```
 
 ## Run Tests
 
@@ -70,6 +82,9 @@ docker compose run --rm test
 
    # Repositories (enriched: description, language, stargazers_count, forks_count)
    docker compose exec db psql -U postgres -d github_push_events_development -c "SELECT id, full_name, language, stargazers_count, forks_count FROM repositories ORDER BY stargazers_count DESC NULLS LAST LIMIT 5;"
+
+   # Actor avatars (stored in Active Storage, Disk backend)
+   docker compose exec app bin/rails runner "puts Actor.find(1).avatar.attached?"
    ```
 5. **Expected timing**: Events can have 30s to 6h latency per GitHub docs. You may see 0 PushEvents on first run if the public feed has none at that moment. Run again or wait for activity.
 

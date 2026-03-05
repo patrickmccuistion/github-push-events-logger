@@ -6,9 +6,10 @@ class GithubEventsIngester
   EVENTS_URL = "https://api.github.com/events"
   ACCEPT_HEADER = "application/vnd.github+json"
 
-  def initialize(logger: Rails.logger, enrich: true)
+  def initialize(logger: Rails.logger, enrich: true, rate_limiter: nil)
     @logger = logger
-    @enricher = enrich ? GithubEnricher.new(logger: logger) : nil
+    limiter = rate_limiter || (build_rate_limiter if enrich)
+    @enricher = enrich ? GithubEnricher.new(logger: logger, rate_limiter: limiter) : nil
     @etag = nil
     @poll_interval = 60
   end
@@ -120,6 +121,11 @@ class GithubEventsIngester
     )
 
     @logger.info "[ingest] Persisted PushEvent #{event_id}"
+  end
+
+  def build_rate_limiter
+    return nil unless ENV["RATE_LIMIT_DELAY"].present? || ENV["MAX_REQUESTS_PER_RUN"].present?
+    GithubRateLimiter.new(logger: @logger)
   end
 
   def handle_rate_limit(response)
